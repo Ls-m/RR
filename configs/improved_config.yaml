@@ -1,0 +1,80 @@
+# Improved Configuration file for PPG to Respiratory Waveform Estimation
+
+# Task Configuration
+task:
+  mode: "signal"  # Options: "signal" (Mode 1) or "rate" (Mode 2)
+  # Mode 1: PPG -> Respiratory Signal estimation
+  # Mode 2: PPG -> Respiratory Rate estimation
+
+# Data Configuration
+data:
+  csv_folder: "bidmc_data"
+  input_column: "PPG"
+  target_column: "NASAL CANULA"  # For Mode 1 (signal estimation)
+  target_rr_column: "RESP"       # For Mode 2 (rate estimation) - from Numerics.csv
+  sampling_rate: 125
+  segment_length: 1000  # 8 seconds at 125 Hz
+  overlap: 0.5  # 50% overlap between segments
+  # For BIDMC dataset
+  bidmc_signals_column: " PLETH"  # PPG column in bidmc_XX_Signals.csv (125 Hz)
+  bidmc_resp_column: " RESP"      # Respiratory signal in bidmc_XX_Signals.csv
+  bidmc_rr_column: " RESP"        # Respiratory rate in bidmc_XX_Numerics.csv (1 Hz)
+  
+# Preprocessing Configuration
+preprocessing:
+  bandpass_filter:
+    low_freq: 0.05  # Lower frequency for better stability
+    high_freq: 2.0   # Higher frequency, well below Nyquist
+    order: 2         # Lower order for better numerical stability
+  downsample:
+    target_rate: 25  # Downsample to 25 Hz
+  normalization: "z_score"  # Options: z_score, min_max, robust
+
+# Model Configuration
+model:
+  name: "RWKV"  # Options: CNN1D, LSTM, CNN_LSTM, AttentionCNN_LSTM, RWKV, ImprovedTransformer, WaveNet
+  input_size: 200  # After downsampling: 2048/4 = 512
+  hidden_size: 256  # Increased for better capacity
+  num_layers: 6     # Increased depth
+  dropout: 0.1      # Reduced dropout for better learning
+  
+# Training Configuration
+training:
+  batch_size: 64    # Optimized batch size
+  learning_rate: 0.0005  # Slightly higher learning rate
+  max_epochs: 50    # More epochs for better convergence
+  patience: 15      # Early stopping patience
+  val_split: 0.2    # 20% of training data for validation
+  
+  # Optimizer Configuration
+  optimizer: "adamw"  # Options: adam, adamw, sgd, adabelief
+  scheduler: "reduce_on_plateau"  # Options: reduce_on_plateau, cosine, none
+  weight_decay: 1e-4  # L2 regularization
+  gradient_clip_val: 1.0  # Gradient clipping
+  
+  # AdaBelief specific parameters (used when optimizer: "adabelief")
+  adabelief_eps: 1e-16  # Small constant for numerical stability
+  adabelief_betas: [0.9, 0.999]  # Exponential decay rates for moment estimates
+  adabelief_weight_decouple: true  # Whether to decouple weight decay
+  adabelief_rectify: true  # Whether to use rectified updates
+  
+# Cross Validation Configuration
+cross_validation:
+  method: "leave_one_out"  # Leave one subject out
+  
+# Logging Configuration
+logging:
+  log_dir: "logs"
+  experiment_name: "ppg_respiratory_estimation_improved"
+  save_top_k: 3
+  
+# Evaluation Configuration
+evaluation:
+  metrics: ["pearson_correlation", "mse", "mae"]
+  plot_samples: 5  # Number of random samples to plot
+  
+# Hardware Configuration
+hardware:
+  accelerator: "auto"  # auto, cpu, gpu
+  devices: 1
+  precision: 32

@@ -1,0 +1,37 @@
+/.DS_Store
+/.vscode
+# Top-level folders
+csv/
+logs/
+results/
+
+# Subfolders under src/
+src/csv/
+src/logs/
+src/results/
+src/bidmc/
+src/bidmc_data/
+src/capno/
+src/preprocessing_configs/
+src/mat/
+__pycache__/
+*.py[cod]
+src/exercise.py
+src/demo_subject_wise_splitting.py
+src/checkpoints/
+src/bidmc_data/
+examples/
+demo_preprocessing_report/
+bidmc_preprocessing_report/
+capno_preprocessing_report/
+capno_distribution_report_20250720_184002/
+src/bidmc_data.mat
+ENHANCED_FEATURES_README.md
+example_usage.py
+RWKV_IMPROVEMENTS_README.md
+test_enhanced_features.py
+test_rwkv_improvements.py
+src/tb_logs/
+preprocessing_configs/
+src/mycode.py
+src/.DS_Store

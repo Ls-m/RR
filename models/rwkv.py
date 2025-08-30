@@ -484,37 +484,27 @@ def load_pretrained_input_convs(
     checkpoint_path: str, 
     target_hidden_size: int = 256
 ) -> dict[str, any]:
-    """
-    Load pretrained input convolution layers from checkpoint.
-    
-    Args:
-        checkpoint_path: Path to the saved checkpoint
-        target_hidden_size: Expected hidden size for compatibility check
-        
-    Returns:
-        Dictionary containing the state dict and metadata
-    """
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     
     if 'conv_layers' in checkpoint:
-        # This is a saved input conv layers file
         conv_layers = checkpoint['conv_layers']
         hidden_size = checkpoint['hidden_size']
-    else:
-        # This is a full model checkpoint - extract input conv layers
+    
+    elif 'model_state_dict' in checkpoint:
         model_state = checkpoint['model_state_dict']
         hidden_size = checkpoint.get('hidden_size', 256)
-        
-        conv_layers = {}
-        for key, value in model_state.items():
-            if key.startswith('input_convs.'):
-                # Remove the 'input_convs.' prefix
-                new_key = key[12:]  # len('input_convs.') = 12
-                conv_layers[new_key] = value
+        conv_layers = {
+            key[12:]: value for key, value in model_state.items()
+            if key.startswith('input_convs.')
+        }
     
-    # Verify compatibility
-    if hidden_size != target_hidden_size:
-        print(f"Warning: Pretrained model hidden size ({hidden_size}) != target ({target_hidden_size})")
+    else:
+        # Assume it's already a raw state_dict of convs
+        conv_layers = {
+            key[12:]: value for key, value in checkpoint.items()
+            if key.startswith('input_convs.')
+        }
+        hidden_size = target_hidden_size  # fallback
     
     return {
         'state_dict': conv_layers,

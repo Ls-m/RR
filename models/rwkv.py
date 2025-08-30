@@ -574,7 +574,7 @@ class ImprovedTransformer(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        pretrained_path = "pretrained_input_convs.pth"
+        pretrained_path = "./pretrained_input_convs.pth"
         helper = PretrainedConvTransferHelper(pretrained_path)
         hidden_size = helper.get_hidden_size()
         # Multi-scale input processing

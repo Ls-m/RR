@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-
+import os
 # class RWKVBlockV5(nn.Module):
 #     """RWKV-v5 block (multi-head style) for time series."""
 #     def __init__(self, d_model: int, n_heads: int = 4, d_ff: int = None, dropout: float = 0.1):
@@ -574,7 +574,7 @@ class ImprovedTransformer(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        pretrained_path = "models/pretrained_input_convs.pth"
+        pretrained_path = os.path.join(os.path.dirname(__file__), "pretrained_input_convs.pth")
         helper = PretrainedConvTransferHelper(pretrained_path)
         hidden_size = helper.get_hidden_size()
         # Multi-scale input processing

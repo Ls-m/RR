@@ -101,4 +101,4 @@ python train_enhanced.py --task-mode rate --config ../configs/improved_config.ya
 
 
 
-python train_enhanced.py --task-mode rate --config ../configs/improved_config.yaml --override training.max_epochs=2 --override model.name=ImprovedTransformer --override model.num_layers=4 --override logging.experiment_name=ImprovedTransformer_d6_bidmc_experiment_rr_2 --override model.dropout=0.6 --override preprocessing.bandpass_filter.high_freq=0.6 --override preprocessing.bandpass_filter.low_freq=0.1 --cv-method k_fold --n-folds 5
+python train_enhanced.py --task-mode rate --config ../configs/improved_config.yaml --override training.max_epochs=20 --override model.name=ImprovedTransformer --override model.num_layers=4 --override logging.experiment_name=ImprovedTransformer_d6_bidmc_experiment_rr_3 --override model.dropout=0.6 --override preprocessing.bandpass_filter.high_freq=0.6 --override preprocessing.bandpass_filter.low_freq=0.1 --cv-method k_fold --n-folds 5

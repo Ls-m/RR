@@ -556,7 +556,7 @@ class PretrainedConvTransferHelper:
         """Get the hidden size from pretrained model"""
         return self.pretrained_data['hidden_size']
     
-    def get_model_info(self) -> Dict[str, Any]:
+    def get_model_info(self) -> dict[str, any]:
         """Get information about the pretrained model"""
         return {
             'model_type': self.pretrained_data['model_type'],

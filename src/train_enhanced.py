@@ -14,126 +14,8 @@ from dataset import create_data_loaders
 from lightning_module import PPGRespiratoryLightningModule
 from preprocessing_config import PreprocessingConfigManager, EnhancedDataPreprocessor
 from cross_validation_utils import CrossValidationManager, OptunaHyperparameterOptimizer
-from data_distribution_analyzer import DataDistributionAnalyzer
-from scipy.stats import pearsonr
-from scipy.signal import find_peaks
-from scipy.fft import fft
 
-def calculate_metrics(predicted_rr, target_rr):
-    # Remove any NaN values that may have occurred during calculation
-    valid_indices = ~np.isnan(predicted_rr) & ~np.isnan(target_rr)
-    
-    if np.sum(valid_indices) == 0:
-        print("Warning: No valid RR pairs to compare.")
-        return np.nan, np.nan
-        
-    predicted_rr = predicted_rr[valid_indices]
-    target_rr = target_rr[valid_indices]
-    
-    mae = np.mean(np.abs(predicted_rr - target_rr))
-    mse = np.mean((predicted_rr - target_rr)**2)
-    return mae, mse
 
-def calculate_rr_peak_detection(signal, fs=25.0):
-    """
-    Calculates respiratory rate using peak detection.
-    Assumes a sampling frequency (fs) of 25 Hz.
-    """
-    # Set a minimum peak distance based on a max possible RR of ~40 BPM (1.5s)
-    # but a more reasonable minimum is around 0.5s for noise resilience.
-    min_dist = fs / 2.0 # Corresponds to 120 BPM, a safe upper limit.
-    peaks, _ = find_peaks(signal, distance=min_dist, height=0) # height=0 ensures peaks are positive
-    
-    if len(peaks) < 2:
-        return np.nan # Not enough peaks to calculate a rate
-
-    # Calculate the average time difference between peaks and convert to BPM
-    avg_interval_seconds = np.mean(np.diff(peaks)) / fs
-    rr = 60 / avg_interval_seconds
-    return rr
-
-def calculate_rr_fft(signal, fs=25.0):
-    """
-    Calculates respiratory rate using Fast Fourier Transform (FFT).
-    Assumes a sampling frequency (fs) of 25 Hz.
-    """
-    n = len(signal)
-    if n == 0:
-        return np.nan
-
-    # Compute FFT
-    yf = fft(signal)
-    xf = np.fft.fftfreq(n, 1 / fs)
-
-    # We are interested in the physiological frequency range for respiration (0.1-0.6 Hz)
-    positive_mask = (xf >= 0.1) & (xf <= 0.6)
-
-    if not np.any(positive_mask):
-      return np.nan
-
-    # Find the frequency with the highest power in the valid range
-    dominant_freq = xf[positive_mask][np.argmax(np.abs(yf[positive_mask]))]
-    
-    # Convert frequency (Hz) to breaths per minute (BPM)
-    rr = dominant_freq * 60
-    return rr
-
-def estimate_rr_zc(signal, segment_duration_seconds):
-    """
-    Estimate respiratory rate (breaths per minute) using zero-crossing.
-    """
-    # Center around zero
-    signal = signal - 0.5
-    # Count zero crossings
-    zero_crossings = ((signal[:-1] * signal[1:]) < 0).sum().item()
-    # One full breath = 2 zero crossings
-    breaths = zero_crossings / 2
-    # Scale to breaths per minute
-    bpm = (breaths / segment_duration_seconds) * 60
-    return bpm
-
-def compute_rr_mae_from_tensors(preds, targets, segment_duration_seconds=8):
-    """
-    Compute MAE between predicted and true RR using zero-crossing detection.
-    Inputs are torch tensors of shape [batch, 1, signal_len]
-    """
-    preds = preds.squeeze(1).cpu().numpy()   # shape: [batch, signal_len]
-    targets = targets.squeeze(1).cpu().numpy()
-
-    rr_preds = []
-    rr_targets = []
-
-    for pred_signal, target_signal in zip(preds, targets):
-        rr_pred = estimate_rr_zc(pred_signal, segment_duration_seconds)
-        rr_target = estimate_rr_zc(target_signal, segment_duration_seconds)
-        rr_preds.append(rr_pred)
-        rr_targets.append(rr_target)
-
-    rr_preds = np.array(rr_preds)
-    rr_targets = np.array(rr_targets)
-
-    mae = np.mean(np.abs(rr_preds - rr_targets))
-    return mae, rr_preds, rr_targets
-
-def breaths_per_min_zc(output_array_zc, input_array_zc):
-    peak_count_output = []
-    peak_count_cap = []
-    for ind_output in range(output_array_zc.shape[0]):
-        output_array_zc_temp = output_array_zc[ind_output, 0, :]
-        input_array_zc_temp = input_array_zc[ind_output, :]
-        output_array_zc_temp = output_array_zc_temp - 0.5
-        input_array_zc_temp = input_array_zc_temp - 0.5
-        zero_crossings_output = ((output_array_zc_temp[:-1] * output_array_zc_temp[1:]) < 0).sum()
-        zero_crossings_input = ((input_array_zc_temp[:-1] * input_array_zc_temp[1:]) < 0).sum()
-        peak_count_output.append(zero_crossings_output)
-        peak_count_cap.append(zero_crossings_input)
-        # breaths_per_min_output = (zero_crossings_output / 2)*6.25
-    peak_count_output = np.array(peak_count_output)
-    peak_count_cap = np.array(peak_count_cap)
-    #6.5 is used ot scale up to 1 minute, as each segment here is 60/6.5 seconds long.
-    mean_error = ((np.mean(peak_count_output - peak_count_cap)) / 2) * 7.5 
-    mean_abs_error = ((np.mean(np.abs(peak_count_output - peak_count_cap))) / 2) * 7.5
-    return mean_abs_error, mean_error
 
 def load_config(config_path: str) -> Dict:
     """Load configuration from YAML file."""
@@ -350,36 +232,7 @@ def train_single_fold_enhanced(config: Dict, fold_data: Dict, fold_id: int,
         predictions_sq = all_predictions.numpy()
         targets_sq = all_targets.numpy()
 
-    # Calculate RR for all signals using both methods
-    # rr_predictions_peak = np.array([calculate_rr_peak_detection(s, fs=30) for s in predictions_sq])
-    # rr_targets_peak = np.array([calculate_rr_peak_detection(s, fs=30) for s in targets_sq])
-
-    # rr_predictions_fft = np.array([calculate_rr_fft(s, fs=30) for s in predictions_sq])
-    # rr_targets_fft = np.array([calculate_rr_fft(s, fs=30) for s in targets_sq])
-    # Evaluate Peak Detection Method
-    # mae_peak, mse_peak = calculate_metrics(rr_predictions_peak, rr_targets_peak)
-    # print("Peak Detection Method:")
-    # print(f"  MAE: {mae_peak:.4f} breaths/min")
-    # print(f"  MSE: {mse_peak:.4f}")
-
-    # # Evaluate FFT Method
-    # mae_fft, mse_fft = calculate_metrics(rr_predictions_fft, rr_targets_fft)
-    # print("\nFFT Method (Recommended):")
-    # print(f"  MAE: {mae_fft:.4f} breaths/min")
-    # print(f"  MSE: {mse_fft:.4f}")
-    # mean_error_bpm = breaths_per_min_zc(all_predictions, all_targets)
-    # pc = pearsonr(all_predictions.flatten().numpy(), all_targets.flatten().numpy())
-    # mae_rr, rr_preds, rr_targets = compute_rr_mae_from_tensors(all_predictions, all_targets)
-    # print(f"MAE of RR (zero-crossing): {mae_rr:.2f} breaths/min")
-    # print("pc is: ", pc)
-    # print("all predictions are: ")
-    # print(all_predictions)
-    # print("all targets are: ")
-    # print(all_targets)
-    # print("breath error are: ")
-    # print(mean_error_bpm)
-    # print("test targets are: ")
-    # print(predictions['targets'])
+    
     fold_results = {
         'fold_id': fold_id,
         'test_info': test_info,
@@ -516,13 +369,7 @@ def run_enhanced_cross_validation(config: Dict, cv_method: str = 'leave_one_out'
                     test_subjects,
                     val_split=optimized_config['training']['val_split']
                 )
-            # Prepare fold data for k-fold with subject-wise validation
-            # fold_data = cv_manager.prepare_fold_data_kfold(
-            #     processed_data,
-            #     train_subjects,
-            #     test_subjects,
-            #     val_split=optimized_config['training']['val_split']
-            # )
+          
         else:
             
             # LOOCV or single subject with subject-wise validation
@@ -626,8 +473,6 @@ Examples:
                        help='Dataset to use: "bidmc", "csv", or "capno"')
     parser.add_argument('--optimize-hyperparams', action='store_true',
                        help='Enable hyperparameter optimization with Optuna')
-    parser.add_argument('--analyze-data-only', action='store_true',
-                       help='Only generate data distribution analysis report and exit')
     parser.add_argument('--list-subjects', action='store_true',
                        help='List available subjects in the dataset and exit')
     parser.add_argument('--task-mode', type=str, choices=['signal', 'rate'], default=None,
@@ -669,13 +514,8 @@ Examples:
         print(f"\nApplying {len(args.override)} config override(s):")
         config = apply_config_overrides(config, args.override)
     
-    # Data distribution analysis only
-    if args.analyze_data_only:
-        print("Generating data distribution analysis report...")
-        analyzer = DataDistributionAnalyzer(config)
-        results = analyzer.generate_report(config['data']['csv_folder'])
-        print("Data analysis completed!")
-        return
+    
+    
     
     # If listing subjects, do that and exit
     if args.list_subjects:

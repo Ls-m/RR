@@ -483,7 +483,7 @@ import math
 def load_pretrained_input_convs(
     checkpoint_path: str, 
     target_hidden_size: int = 256
-) -> dict[str, Any]:
+) -> dict[str, any]:
     """
     Load pretrained input convolution layers from checkpoint.
     

@@ -480,6 +480,90 @@ import math
         
 #         return output
 
+def load_pretrained_input_convs(
+    checkpoint_path: str, 
+    target_hidden_size: int = 256
+) -> Dict[str, Any]:
+    """
+    Load pretrained input convolution layers from checkpoint.
+    
+    Args:
+        checkpoint_path: Path to the saved checkpoint
+        target_hidden_size: Expected hidden size for compatibility check
+        
+    Returns:
+        Dictionary containing the state dict and metadata
+    """
+    checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    
+    if 'conv_layers' in checkpoint:
+        # This is a saved input conv layers file
+        conv_layers = checkpoint['conv_layers']
+        hidden_size = checkpoint['hidden_size']
+    else:
+        # This is a full model checkpoint - extract input conv layers
+        model_state = checkpoint['model_state_dict']
+        hidden_size = checkpoint.get('hidden_size', 256)
+        
+        conv_layers = {}
+        for key, value in model_state.items():
+            if key.startswith('input_convs.'):
+                # Remove the 'input_convs.' prefix
+                new_key = key[12:]  # len('input_convs.') = 12
+                conv_layers[new_key] = value
+    
+    # Verify compatibility
+    if hidden_size != target_hidden_size:
+        print(f"Warning: Pretrained model hidden size ({hidden_size}) != target ({target_hidden_size})")
+    
+    return {
+        'state_dict': conv_layers,
+        'hidden_size': hidden_size,
+        'model_type': checkpoint.get('model_type', 'unknown')
+    }
+
+class PretrainedConvTransferHelper:
+    """Helper class for transferring pretrained conv layers"""
+    
+    def __init__(self, pretrained_path: str):
+        self.pretrained_path = pretrained_path
+        self.pretrained_data = load_pretrained_input_convs(pretrained_path)
+    
+    def create_compatible_input_convs(self) -> nn.ModuleList:
+        """Create input conv layers compatible with the pretrained weights"""
+        hidden_size = self.pretrained_data['hidden_size']
+        
+        input_convs = nn.ModuleList([
+            nn.Conv1d(1, hidden_size // 4, kernel_size=k, padding=k//2)
+            for k in [3, 7, 15, 31]
+        ])
+        
+        # Load pretrained weights
+        state_dict = self.pretrained_data['state_dict']
+        
+        for i, conv in enumerate(input_convs):
+            conv_key = f'input_convs.{i}.weight'
+            bias_key = f'input_convs.{i}.bias'
+            
+            if conv_key in state_dict:
+                conv.weight.data = state_dict[conv_key]
+            if bias_key in state_dict:
+                conv.bias.data = state_dict[bias_key]
+        
+        return input_convs
+    
+    def get_hidden_size(self) -> int:
+        """Get the hidden size from pretrained model"""
+        return self.pretrained_data['hidden_size']
+    
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get information about the pretrained model"""
+        return {
+            'model_type': self.pretrained_data['model_type'],
+            'hidden_size': self.pretrained_data['hidden_size'],
+            'checkpoint_path': self.pretrained_path
+        }
+
 class ImprovedTransformer(nn.Module):
     """Improved Transformer model with better architecture for signal processing."""
     
@@ -490,12 +574,11 @@ class ImprovedTransformer(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        
+        pretrained_path = "./pretraining_checkpoints/pretrained_input_convs.pth"
+        helper = PretrainedConvTransferHelper(pretrained_path)
+        hidden_size = helper.get_hidden_size()
         # Multi-scale input processing
-        self.input_convs = nn.ModuleList([
-            nn.Conv1d(1, hidden_size // 4, kernel_size=k, padding=k//2)
-            for k in [3, 7, 15, 31]
-        ])
+        self.input_convs = helper.create_compatible_input_convs()
         
         self.input_norm = nn.BatchNorm1d(hidden_size)
         self.input_dropout = nn.Dropout(dropout)

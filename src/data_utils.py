@@ -182,7 +182,7 @@ class DataPreprocessor:
         
         # Hardcoded parameters (can be moved to config)
         window_size_seconds = 30  # Process in 30-second windows
-        motion_threshold = 2.0
+        motion_threshold = 1.5
         flat_height_threshold = 0.1  # Small amplitude for flat lines (adjusted for normalized signal)
         flat_temporal_threshold = 1.0  # Minimum duration for flat line in seconds
         gap_threshold_samples = int(0.5 * fs)  # Merge segments if gap < 0.5 seconds
@@ -201,8 +201,8 @@ class DataPreprocessor:
                 resp_denoised_parts.append(resp_window)
                 continue
             
-            # Step 1: Bandpass filter (0.5-12 Hz, 4th order)
-            sos = signal.butter(4, [0.5 / (fs / 2), 12 / (fs / 2)], btype='band', output='sos')
+            # Step 1: Bandpass filter (0.5-10 Hz, 4th order)
+            sos = signal.butter(4, [0.5 / (fs / 2), 10 / (fs / 2)], btype='band', output='sos')
             ppg_filt = signal.sosfiltfilt(sos, ppg_window)
             
             # Step 2: Calculate upper and lower envelopes
@@ -291,9 +291,9 @@ class DataPreprocessor:
             ppg_clean = ppg_window[keep_mask]
             resp_clean = resp_window[keep_mask]
             
-            # Final lowpass filter on cleaned PPG (2nd order, 10 Hz)
+            # Final lowpass filter on cleaned PPG (2nd order, 8 Hz)
             if len(ppg_clean) > 0:
-                sos_low = signal.butter(2, 10 / (fs / 2), btype='low', output='sos')
+                sos_low = signal.butter(2, 8 / (fs / 2), btype='low', output='sos')
                 ppg_clean = signal.sosfiltfilt(sos_low, ppg_clean)
             
             ppg_denoised_parts.append(ppg_clean)
@@ -347,6 +347,10 @@ class DataPreprocessor:
         
         print(f"  After NaN removal: PPG shape={ppg_signal.shape}, RESP shape={resp_signal.shape}")
         
+        # Denoise (using EPDA on PPG, apply removals to both)
+        ppg_signal, resp_signal = self.denoise_signals(ppg_signal, resp_signal, target_rate)
+        print(f"  After denoise: PPG NaN={np.isnan(ppg_signal).sum()}, RESP NaN={np.isnan(resp_signal).sum()}")
+        print(f"  PPG stats: min={ppg_signal.min():.4f}, max={ppg_signal.max():.4f}, mean={ppg_signal.mean():.4f}")
         # Apply bandpass filter
         original_rate = self.data_config['sampling_rate']
         ppg_filtered = self.apply_bandpass_filter(ppg_signal, original_rate)
@@ -376,10 +380,7 @@ class DataPreprocessor:
         # print(f"  After denoise: PPG NaN={np.isnan(ppg_normalized).sum()}, RESP NaN={np.isnan(resp_normalized).sum()}")
         # print(f"  PPG stats: min={ppg_normalized.min():.4f}, max={ppg_normalized.max():.4f}, mean={ppg_normalized.mean():.4f}")
 
-        # Denoise (using EPDA on PPG, apply removals to both)
-        ppg_normalized, resp_normalized = self.denoise_signals(ppg_normalized, resp_normalized, target_rate)
-        print(f"  After denoise: PPG NaN={np.isnan(ppg_normalized).sum()}, RESP NaN={np.isnan(resp_normalized).sum()}")
-        print(f"  PPG stats: min={ppg_normalized.min():.4f}, max={ppg_normalized.max():.4f}, mean={ppg_normalized.mean():.4f}")
+        
         # Segment
         segment_length = self.data_config['segment_length'] // (original_rate // target_rate)
         overlap = self.data_config['overlap']

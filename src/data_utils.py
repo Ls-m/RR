@@ -454,7 +454,7 @@ class DataPreprocessor:
         overlap = self.data_config['overlap']
         
         ppg_segments, resp_segments = self.segment_signal(
-            ppg_normalized, resp_normalized, segment_length, overlap
+            ppg_normalized, resp_normalized, segment_length, overlap, target_rate
         )
         
         print(f"Subject {subject_id}: {len(ppg_segments)} segments created")

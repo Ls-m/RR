@@ -182,8 +182,8 @@ class DataPreprocessor:
         
         # Hardcoded parameters (can be moved to config)
         window_size_seconds = 30  # Process in 30-second windows
-        motion_threshold = 1.5
-        flat_height_threshold = 0.1  # Small amplitude for flat lines (adjusted for normalized signal)
+        motion_threshold = 2
+        flat_height_threshold = 0.05  # Small amplitude for flat lines (adjusted for normalized signal)
         flat_temporal_threshold = 1.0  # Minimum duration for flat line in seconds
         gap_threshold_samples = int(0.5 * fs)  # Merge segments if gap < 0.5 seconds
         

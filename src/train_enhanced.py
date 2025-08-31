@@ -109,13 +109,19 @@ def apply_config_overrides(config: Dict, overrides: List[str]) -> Dict:
 def setup_callbacks(config: Dict) -> List:
     """Setup PyTorch Lightning callbacks."""
     callbacks = []
-    
+    task_mode = config.get('task', {}).get('mode', 'signal')
+    checkpoint_monitor = 'val_correlation'
+    check_mode = 'max'
+    if task_mode == "rate":
+        # Additional callbacks or modifications for rate prediction
+        checkpoint_monitor = 'val_loss'
+        check_mode = 'min'
     # Model checkpoint callback
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(config['logging']['log_dir'], 'checkpoints'),
         filename='{epoch}-{val_loss:.4f}-{val_correlation:.4f}',
-        monitor='val_correlation',
-        mode='max',
+        monitor=checkpoint_monitor,
+        mode=check_mode,
         save_top_k=config['logging']['save_top_k'],
         save_last=True,
         verbose=True
@@ -124,8 +130,8 @@ def setup_callbacks(config: Dict) -> List:
     
     # Early stopping callback
     early_stopping = EarlyStopping(
-        monitor='val_correlation',
-        mode='max',
+        monitor=checkpoint_monitor,
+        mode=check_mode,
         patience=config['training']['patience'],
         verbose=True,
         min_delta=0.001

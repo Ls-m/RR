@@ -346,9 +346,9 @@ class DataPreprocessor:
 
     def segment_signal(self, ppg_signal: np.ndarray, resp_signal: np.ndarray,
                        segment_length: int, overlap: float, fs: int,
-                       sqi_threshold_skew: float = 0.2,
-                       sqi_threshold_match: float = 0.8,
-                       sqi_threshold_std: float = 0.1) -> Tuple[np.ndarray, np.ndarray]:
+                       sqi_threshold_skew: float = 0.1,
+                       sqi_threshold_match: float = 0.6,
+                       sqi_threshold_std: float = 0.2) -> Tuple[np.ndarray, np.ndarray]:
         """Segment signals into overlapping windows and discard low-quality based on SQI."""
         step_size = int(segment_length * (1 - overlap))
         
@@ -369,6 +369,8 @@ class DataPreprocessor:
             if (sqi_skew < sqi_threshold_skew or
                 sqi_match < sqi_threshold_match or
                 sqi_std > sqi_threshold_std):  # High std means noisy
+                print(f"Skew={sqi_skew:.2f}, Match={sqi_match:.2f}, Std={sqi_std:.2f}")
+
                 continue
             
             ppg_segments.append(ppg_seg)

@@ -367,7 +367,7 @@ class DataPreprocessor:
             
             # Discard if any SQI fails (tune thresholds as needed)
             if (sqi_skew < sqi_threshold_skew or
-                sqi_match < sqi_threshold_match or
+
                 sqi_std > sqi_threshold_std):  # High std means noisy
                 print(f"Skew={sqi_skew:.2f}, Match={sqi_match:.2f}, Std={sqi_std:.2f}")
 

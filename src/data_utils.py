@@ -7,6 +7,8 @@ from scipy.stats import zscore
 from sklearn.preprocessing import MinMaxScaler, RobustScaler
 from typing import Tuple, List, Dict
 # from vmdpy import VMD
+from itertools import groupby
+from scipy.signal import find_peaks
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -173,7 +175,137 @@ class DataPreprocessor:
     #     u, u_hat, omega = VMD(signal_data, alpha, tau, K, DC, init, tol)
     #     denoised_ppg = np.sum(u[:3, :], axis=0)
     #     return denoised_ppg
+    def denoise_signals(self, ppg_signal: np.ndarray, resp_signal: np.ndarray, fs: int) -> Tuple[np.ndarray, np.ndarray]:
+        """Denoise PPG signal using Envelope PPG Denoising Algorithm (EPDA) and apply same removals to resp signal."""
+        if len(ppg_signal) == 0:
+            return ppg_signal, resp_signal
         
+        # Hardcoded parameters (can be moved to config)
+        window_size_seconds = 30  # Process in 30-second windows
+        motion_threshold = 2.0
+        flat_height_threshold = 0.1  # Small amplitude for flat lines (adjusted for normalized signal)
+        flat_temporal_threshold = 1.0  # Minimum duration for flat line in seconds
+        gap_threshold_samples = int(0.5 * fs)  # Merge segments if gap < 0.5 seconds
+        
+        window_length = int(window_size_seconds * fs)
+        ppg_denoised_parts = []
+        resp_denoised_parts = []
+        
+        for start in range(0, len(ppg_signal), window_length):
+            end = min(start + window_length, len(ppg_signal))
+            ppg_window = ppg_signal[start:end]
+            resp_window = resp_signal[start:end]
+            
+            if len(ppg_window) < fs:  # Skip small leftover
+                ppg_denoised_parts.append(ppg_window)
+                resp_denoised_parts.append(resp_window)
+                continue
+            
+            # Step 1: Bandpass filter (0.5-12 Hz, 4th order)
+            sos = signal.butter(4, [0.5 / (fs / 2), 12 / (fs / 2)], btype='band', output='sos')
+            ppg_filt = signal.sosfiltfilt(sos, ppg_window)
+            
+            # Step 2: Calculate upper and lower envelopes
+            distance = 0.2 * len(ppg_filt)
+            peaks, _ = find_peaks(ppg_filt, distance=distance)
+            troughs, _ = find_peaks(-ppg_filt, distance=distance)
+            
+            # Handle if no peaks/troughs
+            if len(peaks) < 2 or len(troughs) < 2:
+                ppg_denoised_parts.append(ppg_window)
+                resp_denoised_parts.append(resp_window)
+                continue
+            
+            upper_env = np.interp(np.arange(len(ppg_filt)), peaks, ppg_filt[peaks])
+            lower_env = np.interp(np.arange(len(ppg_filt)), troughs, ppg_filt[troughs])
+            
+            env_diff = np.abs(upper_env - lower_env)
+            
+            # Calculate median
+            median_env = np.median(env_diff)
+            
+            # Step 3: Calculate thresholds for motion
+            q1, q3 = np.percentile(env_diff, [25, 75])
+            iqr = q3 - q1
+            upper_th = q3 + motion_threshold * iqr
+            lower_th = max(0, q1 - motion_threshold * iqr)  # Clip lower to 0 since env_diff >=0
+            
+            # Step 4: Detect motion anomalies (slope change points out of thresholds)
+            diffs = np.diff(env_diff)
+            sign_diff = np.diff(np.sign(diffs))
+            slope_changes = np.where(sign_diff != 0)[0] + 1
+            
+            motion_anomalies = [idx for idx in slope_changes if env_diff[idx] > upper_th or env_diff[idx] < lower_th]
+            
+            # Find crossings with median
+            crossings = np.where(np.diff(np.sign(env_diff - median_env)))[0] + 1
+            
+            # For each motion anomaly, find surrounding crossings for segment
+            motion_segments = []
+            for anom_idx in motion_anomalies:
+                left_cross = crossings[crossings < anom_idx]
+                right_cross = crossings[crossings > anom_idx]
+                if len(left_cross) > 0 and len(right_cross) > 0:
+                    start_seg = max(left_cross[-1] - 1, 0)  # Adjust for crossing index
+                    end_seg = min(right_cross[0], len(env_diff) - 1)
+                    motion_segments.append((start_seg, end_seg))
+            
+            # Step 5: Detect flat line segments on filtered PPG
+            height_detection = np.where(np.abs(ppg_filt) < flat_height_threshold, 0, 1)
+            flat_segments = []
+            for key, grp in groupby(enumerate(height_detection), lambda x: x[1]):
+                if key == 0:
+                    grp_list = list(grp)
+                    s = grp_list[0][0]
+                    e = grp_list[-1][0]
+                    if (e - s + 1) >= flat_temporal_threshold * fs:
+                        flat_segments.append((s, e))
+            
+            # Combine all segments
+            all_segments = motion_segments + flat_segments
+            
+            if not all_segments:
+                ppg_denoised_parts.append(ppg_window)
+                resp_denoised_parts.append(resp_window)
+                continue
+            
+            # Sort segments by start
+            all_segments.sort(key=lambda x: x[0])
+            
+            # Merge overlapping or close segments
+            merged = []
+            current_start, current_end = all_segments[0]
+            for next_start, next_end in all_segments[1:]:
+                if current_end + gap_threshold_samples >= next_start:
+                    current_end = max(current_end, next_end)
+                else:
+                    merged.append((current_start, current_end))
+                    current_start, current_end = next_start, next_end
+            merged.append((current_start, current_end))
+            
+            # Create mask to keep data not in merged segments
+            keep_mask = np.ones(len(ppg_window), dtype=bool)
+            for s, e in merged:
+                keep_mask[s:e+1] = False
+            
+            ppg_clean = ppg_window[keep_mask]
+            resp_clean = resp_window[keep_mask]
+            
+            # Final lowpass filter on cleaned PPG (2nd order, 10 Hz)
+            if len(ppg_clean) > 0:
+                sos_low = signal.butter(2, 10 / (fs / 2), btype='low', output='sos')
+                ppg_clean = signal.sosfiltfilt(sos_low, ppg_clean)
+            
+            ppg_denoised_parts.append(ppg_clean)
+            resp_denoised_parts.append(resp_clean)
+        
+        # Concatenate all parts
+        ppg_denoised = np.concatenate(ppg_denoised_parts)
+        resp_denoised = np.concatenate(resp_denoised_parts)
+        
+        print(f"After denoising: PPG shape={ppg_denoised.shape}, RESP shape={resp_denoised.shape}")
+        
+        return ppg_denoised, resp_denoised
     def segment_signal(self, ppg_signal: np.ndarray, resp_signal: np.ndarray,
                       segment_length: int, overlap: float) -> Tuple[np.ndarray, np.ndarray]:
         """Segment signals into overlapping windows."""
@@ -241,10 +373,13 @@ class DataPreprocessor:
 
         # # Denoise
         # ppg_normalized = self.denoise_signal(ppg_normalized)
-
         # print(f"  After denoise: PPG NaN={np.isnan(ppg_normalized).sum()}, RESP NaN={np.isnan(resp_normalized).sum()}")
         # print(f"  PPG stats: min={ppg_normalized.min():.4f}, max={ppg_normalized.max():.4f}, mean={ppg_normalized.mean():.4f}")
-        
+
+        # Denoise (using EPDA on PPG, apply removals to both)
+        ppg_normalized, resp_normalized = self.denoise_signals(ppg_normalized, resp_normalized, target_rate)
+        print(f"  After denoise: PPG NaN={np.isnan(ppg_normalized).sum()}, RESP NaN={np.isnan(resp_normalized).sum()}")
+        print(f"  PPG stats: min={ppg_normalized.min():.4f}, max={ppg_normalized.max():.4f}, mean={ppg_normalized.mean():.4f}")
         # Segment
         segment_length = self.data_config['segment_length'] // (original_rate // target_rate)
         overlap = self.data_config['overlap']

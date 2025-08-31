@@ -346,10 +346,9 @@ class DataPreprocessor:
             return np.array([]), np.array([])
         
         print(f"  After NaN removal: PPG shape={ppg_signal.shape}, RESP shape={resp_signal.shape}")
-        # Downsample
-        target_rate = self.preprocess_config['downsample']['target_rate']
+        
         # Denoise (using EPDA on PPG, apply removals to both)
-        ppg_signal, resp_signal = self.denoise_signals(ppg_signal, resp_signal, target_rate)
+        ppg_signal, resp_signal = self.denoise_signals(ppg_signal, resp_signal, original_rate)
         print(f"  After denoise: PPG NaN={np.isnan(ppg_signal).sum()}, RESP NaN={np.isnan(resp_signal).sum()}")
         print(f"  PPG stats: min={ppg_signal.min():.4f}, max={ppg_signal.max():.4f}, mean={ppg_signal.mean():.4f}")
         # Apply bandpass filter
@@ -359,7 +358,8 @@ class DataPreprocessor:
         
         print(f"  After filtering: PPG NaN={np.isnan(ppg_filtered).sum()}, RESP NaN={np.isnan(resp_filtered).sum()}")
         
-        
+        # Downsample
+        target_rate = self.preprocess_config['downsample']['target_rate']
         ppg_downsampled = self.downsample_signal(ppg_filtered, original_rate, target_rate)
         resp_downsampled = self.downsample_signal(resp_filtered, original_rate, target_rate)
         

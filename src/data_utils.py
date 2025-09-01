@@ -344,42 +344,12 @@ class DataPreprocessor:
         second_deriv = np.diff(np.diff(segment))
         return np.std(second_deriv)
 
-    def segment_signal(self, ppg_signal: np.ndarray, resp_signal: np.ndarray,
-                       segment_length: int, overlap: float, fs: int,
-                       sqi_threshold_skew: float = 0.1,
-                       sqi_threshold_match: float = 0.6,
-                       sqi_threshold_std: float = 0.2) -> Tuple[np.ndarray, np.ndarray]:
-        """Segment signals into overlapping windows and discard low-quality based on SQI."""
-        step_size = int(segment_length * (1 - overlap))
-        
-        ppg_segments = []
-        resp_segments = []
-        
-        for start in range(0, len(ppg_signal) - segment_length + 1, step_size):
-            end = start + segment_length
-            ppg_seg = ppg_signal[start:end]
-            resp_seg = resp_signal[start:end]
-            
-            # Compute SQIs
-            sqi_skew = self.compute_sqi_skewness(ppg_seg)
-            sqi_match = self.compute_sqi_matching(ppg_seg, fs)
-            sqi_std = self.compute_sqi_std_deriv(ppg_seg)
-            
-            # Discard if any SQI fails (tune thresholds as needed)
-            if (sqi_skew < sqi_threshold_skew or
-                
-                sqi_std > sqi_threshold_std):  # High std means noisy
-                print(f"Skew={sqi_skew:.2f}, Match={sqi_match:.2f}, Std={sqi_std:.2f}")
-
-                continue
-            
-            ppg_segments.append(ppg_seg)
-            resp_segments.append(resp_seg)
-        
-        return np.array(ppg_segments), np.array(resp_segments)
     # def segment_signal(self, ppg_signal: np.ndarray, resp_signal: np.ndarray,
-    #                   segment_length: int, overlap: float) -> Tuple[np.ndarray, np.ndarray]:
-    #     """Segment signals into overlapping windows."""
+    #                    segment_length: int, overlap: float, fs: int,
+    #                    sqi_threshold_skew: float = 0.1,
+    #                    sqi_threshold_match: float = 0.6,
+    #                    sqi_threshold_std: float = 0.2) -> Tuple[np.ndarray, np.ndarray]:
+    #     """Segment signals into overlapping windows and discard low-quality based on SQI."""
     #     step_size = int(segment_length * (1 - overlap))
         
     #     ppg_segments = []
@@ -387,10 +357,40 @@ class DataPreprocessor:
         
     #     for start in range(0, len(ppg_signal) - segment_length + 1, step_size):
     #         end = start + segment_length
-    #         ppg_segments.append(ppg_signal[start:end])
-    #         resp_segments.append(resp_signal[start:end])
+    #         ppg_seg = ppg_signal[start:end]
+    #         resp_seg = resp_signal[start:end]
+            
+    #         # Compute SQIs
+    #         sqi_skew = self.compute_sqi_skewness(ppg_seg)
+    #         sqi_match = self.compute_sqi_matching(ppg_seg, fs)
+    #         sqi_std = self.compute_sqi_std_deriv(ppg_seg)
+            
+    #         # Discard if any SQI fails (tune thresholds as needed)
+    #         if (sqi_skew < sqi_threshold_skew or
+                
+    #             sqi_std > sqi_threshold_std):  # High std means noisy
+    #             print(f"Skew={sqi_skew:.2f}, Match={sqi_match:.2f}, Std={sqi_std:.2f}")
+
+    #             continue
+            
+    #         ppg_segments.append(ppg_seg)
+    #         resp_segments.append(resp_seg)
         
     #     return np.array(ppg_segments), np.array(resp_segments)
+    def segment_signal(self, ppg_signal: np.ndarray, resp_signal: np.ndarray,
+                      segment_length: int, overlap: float) -> Tuple[np.ndarray, np.ndarray]:
+        """Segment signals into overlapping windows."""
+        step_size = int(segment_length * (1 - overlap))
+        
+        ppg_segments = []
+        resp_segments = []
+        
+        for start in range(0, len(ppg_signal) - segment_length + 1, step_size):
+            end = start + segment_length
+            ppg_segments.append(ppg_signal[start:end])
+            resp_segments.append(resp_signal[start:end])
+        
+        return np.array(ppg_segments), np.array(resp_segments)
     
     def preprocess_subject_data(self, df: pd.DataFrame, 
                                subject_id: str) -> Tuple[np.ndarray, np.ndarray]:
@@ -456,8 +456,11 @@ class DataPreprocessor:
         segment_length = self.data_config['segment_length'] // (original_rate // target_rate)
         overlap = self.data_config['overlap']
         
+        # ppg_segments, resp_segments = self.segment_signal(
+        #     ppg_normalized, resp_normalized, segment_length, overlap, target_rate
+        # )
         ppg_segments, resp_segments = self.segment_signal(
-            ppg_normalized, resp_normalized, segment_length, overlap, target_rate
+            ppg_normalized, resp_normalized, segment_length, overlap
         )
         
         print(f"Subject {subject_id}: {len(ppg_segments)} segments created")

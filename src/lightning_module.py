@@ -368,7 +368,7 @@ class PPGRespiratoryLightningModule(pl.LightningModule):
                 optimizer, 
                 mode='min', 
                 factor=0.5, 
-                patience=5,
+                patience=3,
                 
             )
             return {

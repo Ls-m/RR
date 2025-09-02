@@ -452,7 +452,7 @@ class DataPreprocessor:
         # print(f"  After denoise: PPG NaN={np.isnan(ppg_normalized).sum()}, RESP NaN={np.isnan(resp_normalized).sum()}")
         # print(f"  PPG stats: min={ppg_normalized.min():.4f}, max={ppg_normalized.max():.4f}, mean={ppg_normalized.mean():.4f}")
 
-        
+        target_rate = original_rate
         # Segment
         segment_length = self.data_config['segment_length'] // (original_rate // target_rate)
         overlap = self.data_config['overlap']

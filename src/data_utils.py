@@ -430,13 +430,14 @@ class DataPreprocessor:
         print(f"  After filtering: PPG NaN={np.isnan(ppg_filtered).sum()}, RESP NaN={np.isnan(resp_filtered).sum()}")
         
         # Downsample
-        target_rate = self.preprocess_config['downsample']['target_rate']
-        ppg_downsampled = self.downsample_signal(ppg_filtered, original_rate, target_rate)
-        resp_downsampled = self.downsample_signal(resp_filtered, original_rate, target_rate)
+        # target_rate = self.preprocess_config['downsample']['target_rate']
+        # ppg_downsampled = self.downsample_signal(ppg_filtered, original_rate, target_rate)
+        # resp_downsampled = self.downsample_signal(resp_filtered, original_rate, target_rate)
         
-        print(f"  After downsampling: PPG shape={ppg_downsampled.shape}, RESP shape={resp_downsampled.shape}")
-        print(f"  PPG NaN={np.isnan(ppg_downsampled).sum()}, RESP NaN={np.isnan(resp_downsampled).sum()}")
-        
+        # print(f"  After downsampling: PPG shape={ppg_downsampled.shape}, RESP shape={resp_downsampled.shape}")
+        # print(f"  PPG NaN={np.isnan(ppg_downsampled).sum()}, RESP NaN={np.isnan(resp_downsampled).sum()}")
+        ppg_downsampled = ppg_filtered
+        resp_downsampled = resp_filtered
         # Normalize
         norm_method = self.preprocess_config['normalization']
         ppg_normalized = self.normalize_signal(ppg_downsampled, norm_method)

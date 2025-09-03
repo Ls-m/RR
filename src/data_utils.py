@@ -548,8 +548,8 @@ class DataPreprocessor:
         
         # Calculate segment timing information
         original_rate = self.data_config['sampling_rate']
-        target_rate = self.preprocess_config['downsample']['target_rate']
-        segment_length_samples = ppg_segments.shape[-1]  # After downsampling
+        target_rate = self.preprocess_config['downsample']['target_rate'] 
+        segment_length_samples = ppg_segments.shape[-1]  # After downsampling 
         segment_duration = segment_length_samples / target_rate
         print("segment duration is ", segment_duration)
         

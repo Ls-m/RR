@@ -381,7 +381,7 @@ class PPGRespiratoryLightningModule(pl.LightningModule):
                 }
             }
         elif self.scheduler_name.lower() == 'cosine':
-            scheduler = CosineAnnealingLR(optimizer, T_max=50)
+            scheduler = CosineAnnealingLR(optimizer, T_max=100, eta_min=1e-6)
             return {
                 'optimizer': optimizer,
                 'lr_scheduler': scheduler

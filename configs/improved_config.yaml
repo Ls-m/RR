@@ -41,9 +41,9 @@ model:
 # Training Configuration
 training:
   batch_size: 64    # Optimized batch size
-  learning_rate: 0.0005  # Slightly higher learning rate
+  learning_rate: 0.1  # Slightly higher learning rate
   max_epochs: 50    # More epochs for better convergence
-  patience: 15      # Early stopping patience
+  patience: 100      # Early stopping patience
   val_split: 0.2    # 20% of training data for validation
   
   # Optimizer Configuration

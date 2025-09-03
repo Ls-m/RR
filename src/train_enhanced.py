@@ -206,6 +206,8 @@ def train_single_fold_enhanced(config: Dict, fold_data: Dict, fold_id: int,
         train_dataloaders=data_loaders['train'],
         val_dataloaders=data_loaders['val']
     )
+
+    sleep(30)
     
     # Test the model
     test_results = trainer.test(
@@ -214,7 +216,7 @@ def train_single_fold_enhanced(config: Dict, fold_data: Dict, fold_id: int,
         ckpt_path='best'
     )
     
-    sleep(5)  # Brief pause for system stability
+      # Brief pause for system stability
     
     # Get predictions for ensemble
     model = PPGRespiratoryLightningModule.load_from_checkpoint(

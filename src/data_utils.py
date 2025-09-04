@@ -182,7 +182,7 @@ class DataPreprocessor:
             return ppg_signal, resp_signal
         
         # Hardcoded parameters (can be moved to config)
-        window_size_seconds = 30  # Process in 30-second windows
+        window_size_seconds = 32  # Process in 30-second windows
         motion_threshold = 2
         flat_height_threshold = 0.05  # Small amplitude for flat lines (adjusted for normalized signal)
         flat_temporal_threshold = 1.0  # Minimum duration for flat line in seconds
@@ -419,9 +419,9 @@ class DataPreprocessor:
         print(f"  After NaN removal: PPG shape={ppg_signal.shape}, RESP shape={resp_signal.shape}")
         original_rate = self.data_config['sampling_rate']
         # Denoise (using EPDA on PPG, apply removals to both)
-        ppg_signal, resp_signal = self.denoise_signals(ppg_signal, resp_signal, original_rate)
-        print(f"  After denoise: PPG NaN={np.isnan(ppg_signal).sum()}, RESP NaN={np.isnan(resp_signal).sum()}")
-        print(f"  PPG stats: min={ppg_signal.min():.4f}, max={ppg_signal.max():.4f}, mean={ppg_signal.mean():.4f}")
+        # ppg_signal, resp_signal = self.denoise_signals(ppg_signal, resp_signal, original_rate)
+        # print(f"  After denoise: PPG NaN={np.isnan(ppg_signal).sum()}, RESP NaN={np.isnan(resp_signal).sum()}")
+        # print(f"  PPG stats: min={ppg_signal.min():.4f}, max={ppg_signal.max():.4f}, mean={ppg_signal.mean():.4f}")
         # Apply bandpass filter
         
         ppg_filtered = self.apply_bandpass_filter(ppg_signal, original_rate)

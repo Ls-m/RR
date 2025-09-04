@@ -504,24 +504,25 @@ class DataPreprocessor:
     def prepare_rate_dataset(self, csv_folder: str) -> Dict[str, Tuple[np.ndarray, np.ndarray]]:
         """Prepare dataset for respiratory rate estimation (Mode 2)."""
         # Load signal files for PPG input
-        csv_files = self.load_csv_files(csv_folder)
+        csv_files = self.load_csv_files(csv_folder) 
         # print(csv_files['bidmc_49_Signals'])
         # Load RR files for rate targets
         if 'bidmc' in csv_folder.lower():
-            rr_files = self.load_bidmc_rr_data(csv_folder)
+            rr_files = self.load_bidmc_rr_data(csv_folder) 
         else:
             # For other datasets, assume RR is already in the main CSV files
             rr_files = csv_files
         
         processed_data = {}
-        my_keys = ["_".join(subject_id.split("_")[:-1]) for subject_id in csv_files.keys()]
+        my_keys = rr_files.keys()
+        print(len(my_keys))
         for subject_id in my_keys:
             # result = "_".join(subject_id.split("_")[:-1])
             # subject_id = result
             print("result is",subject_id)
-            if subject_id not in rr_files:
-                print(f"Warning: No RR data found for subject {subject_id}")
-                continue
+            # if subject_id not in rr_files:
+            #     print(f"Warning: No RR data found for subject {subject_id}")
+            #     continue
             
             # Process PPG signal (same as Mode 1)
             signal_df = csv_files[subject_id+"_Signals"]

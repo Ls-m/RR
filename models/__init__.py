@@ -6,7 +6,7 @@ from .improved_rwkv import RevisedRWKV_DualBranch
 from .dual_mode import DualModeWrapper, DualModeModel
 
 
-def get_model(model_name: str, task_mode: str = "signal", **kwargs):
+def get_model(model_name: str, task_mode: str = "signal", fold_id: int = None, **kwargs):
     """Factory function to get model by name with dual-mode support."""
     """Factory function to get model by name."""
     
@@ -39,6 +39,7 @@ def get_model(model_name: str, task_mode: str = "signal", **kwargs):
         if task_mode == "rate":
             # For rate mode, create base model first, then wrap it
             model_kwargs = {k: v for k, v in kwargs.items() if k != 'task_mode'}
+            model_kwargs['fold_id'] = fold_id  # Pass fold_id to base model
             base_model = base_models[model_name](**model_kwargs)
             return DualModeWrapper(base_model, task_mode=task_mode, input_size=kwargs.get('input_size', 512))
         else:
@@ -47,6 +48,8 @@ def get_model(model_name: str, task_mode: str = "signal", **kwargs):
             return base_models[model_name](**model_kwargs)
     
     else:
+        # For signal mode, pass fold_id directly
+        kwargs['fold_id'] = fold_id
         all_models = list(dual_mode_models.keys()) + list(base_models.keys())
         raise ValueError(f"Model {model_name} not found. Available models: {all_models}")
 

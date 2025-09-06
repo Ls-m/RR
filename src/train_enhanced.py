@@ -14,7 +14,7 @@ from dataset import create_data_loaders
 from lightning_module import PPGRespiratoryLightningModule
 from preprocessing_config import PreprocessingConfigManager, EnhancedDataPreprocessor
 from cross_validation_utils import CrossValidationManager, OptunaHyperparameterOptimizer
-
+import copy
 
 
 def load_config(config_path: str) -> Dict:
@@ -152,6 +152,8 @@ def train_single_fold_enhanced(config: Dict, fold_data: Dict, fold_id: int,
         print(f"Training Fold {fold_id} - Test Subject: {test_info}")
     print(f"{'='*50}")
     
+    fold_config = copy.deepcopy(config)
+    fold_config['fold_id'] = fold_id  # Now accessible downstream
     # Create data loaders with task mode support
     task_mode = config.get('task', {}).get('mode', 'signal')
     # print("in train_single fold function the fold_data['train resp'] is ", fold_data['train_resp'])
@@ -168,7 +170,7 @@ def train_single_fold_enhanced(config: Dict, fold_data: Dict, fold_id: int,
     
     
     # Initialize model
-    model = PPGRespiratoryLightningModule(config)
+    model = PPGRespiratoryLightningModule(fold_config)
     
     # Setup logger
     logger = TensorBoardLogger(

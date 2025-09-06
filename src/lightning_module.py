@@ -29,6 +29,8 @@ class PPGRespiratoryLightningModule(pl.LightningModule):
         self.save_hyperparameters()
         self.config = config
         
+        # Extract fold_id from config
+        self.fold_id = config.get('fold_id', None)  # Default to None if not present
         # Task mode configuration
         self.task_mode = config.get('task', {}).get('mode', 'signal')
         print(f"Initializing Lightning module in {self.task_mode} mode")
@@ -41,7 +43,8 @@ class PPGRespiratoryLightningModule(pl.LightningModule):
             input_size=model_config['input_size'],
             hidden_size=model_config['hidden_size'],
             num_layers=model_config['num_layers'],
-            dropout=model_config['dropout']
+            dropout=model_config['dropout'],
+            fold_id=self.fold_id
         )
         
         # Training configuration

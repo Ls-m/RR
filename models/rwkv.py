@@ -558,13 +558,20 @@ class ImprovedTransformer(nn.Module):
     """Improved Transformer model with better architecture for signal processing."""
     
     def __init__(self, input_size: int, hidden_size: int = 256, 
-                 num_layers: int = 6, num_heads: int = 8, dropout: float = 0.1):
+                 num_layers: int = 6, num_heads: int = 8, dropout: float = 0.1, fold_id: int = None):
         super().__init__()
         
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-        pretrained_path = os.path.join(os.path.dirname(__file__), "pretrained_input_convs8.pth")
+        # Construct fold-specific pretrained path
+        if fold_id is not None:
+            pretrained_filename = f"pretrained_input_convs_fold_{fold_id}.pth"
+        else:
+            pretrained_filename = "pretrained_input_convs8.pth"  # Fallback for non-fold cases
+        
+        pretrained_path = os.path.join(os.path.dirname(__file__), pretrained_filename)
+        
         helper = PretrainedConvTransferHelper(pretrained_path)
         hidden_size = helper.get_hidden_size()
         # Multi-scale input processing

@@ -37,7 +37,7 @@ model:
   hidden_size: 256  # Increased for better capacity
   num_layers: 6     # Increased depth
   dropout: 0.1      # Reduced dropout for better learning
-  
+  pass_fold: False
 # Training Configuration
 training:
   batch_size: 64    # Optimized batch size

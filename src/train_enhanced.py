@@ -153,7 +153,8 @@ def train_single_fold_enhanced(config: Dict, fold_data: Dict, fold_id: int,
     print(f"{'='*50}")
     
     fold_config = copy.deepcopy(config)
-    fold_config['fold_id'] = fold_id  # Now accessible downstream
+    if config['model']['pass_fold']:
+        fold_config['fold_id'] = fold_id  # Now accessible downstream
     # Create data loaders with task mode support
     task_mode = config.get('task', {}).get('mode', 'signal')
     # print("in train_single fold function the fold_data['train resp'] is ", fold_data['train_resp'])
